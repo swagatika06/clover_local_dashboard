@@ -538,50 +538,150 @@ function pingToGoogle() {
 }
 
 // Function to process speed test results
+// function process_speed_test_results($callback) {
+//     $results_file = '/tmp/speedtest_results.json';
+
+//     if (file_exists($results_file) && filesize($results_file) > 0) {
+//         $results = file_get_contents($results_file);
+//         $data = json_decode($results, true);
+//         call_user_func($callback, $data);
+//     } else {
+//         call_user_func($callback, ['status' => 'pending', 'message' => 'Speed test results are not ready yet.']);
+//     }
+// }
+
+// function start_speed_test($callback) {
+//     $results_file = '/tmp/speedtest_results.json';
+
+//      process_speed_test_results($callback);
+// }
+
+// function handle_speed_test_results($data) {
+//     header('Content-Type: application/json');
+//     echo json_encode($data);
+// }
+
+
+// Function to process speed test results and invoke callback
 function process_speed_test_results($callback) {
     $results_file = '/tmp/speedtest_results.json';
+    file_put_contents('/tmp/speedtest_process.log', "Checking results file: $results_file\n", FILE_APPEND);
 
-    // Check if results file exists and is not empty
     if (file_exists($results_file) && filesize($results_file) > 0) {
         $results = file_get_contents($results_file);
-        // Decode JSON and pass to callback
+        file_put_contents('/tmp/speedtest_process.log', "Results file contents: $results\n", FILE_APPEND);
+        
         $data = json_decode($results, true);
-        call_user_func($callback, $data);
+        file_put_contents('/tmp/speedtest_process.log', "Decoded JSON data: " . print_r($data, true) . "\n", FILE_APPEND);
+        
+        if (is_array($data) && 
+            isset($data['download'], $data['upload'], $data['ping'], $data['server'], $data['client']) &&
+            is_numeric($data['download']) && 
+            is_numeric($data['upload']) && 
+            is_numeric($data['ping'])) {
+
+            // Convert download and upload to kbps
+            //$download = $data['download'] * 8 / 1000;
+            //$upload = $data['upload'] * 8 / 1000; 
+            // Calculate download and upload speeds in Mbps
+            $download = round(($data['download'] * 8) / 1_000_000, 2); // Download speed in Mbps
+            $upload = round(($data['upload'] * 8) / 1_000_000, 2); // Upload speed in Mbps   
+
+            // Create the formatted output
+            $formatted_response = [
+                'Total_Download_Bandwidth' => $download,
+                'Total_Upload_Bandwidth' => $upload,
+                'Ping' => $data['ping'],
+                'Server' => [
+                    'URL' => $data['server']['url'],
+                    'Name' => $data['server']['name'],
+                    'Country' => $data['server']['country'],
+                ],
+                'Client' => [
+                    'IP' => $data['client']['ip'],
+                    'ISP' => $data['client']['isp'],
+                    'Country' => $data['client']['country'],
+                ]
+            ];
+
+            call_user_func($callback, [
+                'status' => 'success',
+                'data' => $formatted_response
+            ]);
+        } else {
+            file_put_contents('/tmp/speedtest_process.log', "Invalid data structure or values missing.\n", FILE_APPEND);
+            call_user_func($callback, [
+                'status' => 'pending', 
+                'message' => 'Speed test results are incomplete or invalid.'
+            ]);
+        }
     } else {
-        call_user_func($callback, ['status' => 'pending', 'message' => 'Speed test results are not ready yet.']);
+        file_put_contents('/tmp/speedtest_process.log', "Results file not found or empty.\n", FILE_APPEND);
+        call_user_func($callback, [
+            'status' => 'pending', 
+            'message' => 'Speed test results are not ready yet.'
+        ]);
     }
 }
 
-// Function to start the speed test
+// Function to start the speed test asynchronously and use callback
 function start_speed_test($callback) {
     $results_file = '/tmp/speedtest_results.json';
+    $error_log_file = '/tmp/speedtest_error.log';
 
-    // // Run the speed test command in the background
-    // exec("nohup speedtest-cli --json > $results_file 2>&1 &");
+    // Clear old results file
+    if (file_exists($results_file)) {
+        unlink($results_file);
+        file_put_contents('/tmp/speedtest_start.log', "Old results file cleared.\n", FILE_APPEND);
+    }
 
-    // // Poll for results
-    // $poll_interval = 10; // seconds
+    // Verify token
+    $input = file_get_contents('php://input');
+    $request = json_decode($input, true);
+    $token = isset($request['token']) ? $request['token'] : null;
+    file_put_contents('/tmp/speedtest_start.log', "Received token: $token\n", FILE_APPEND);
 
-    // while (true) {
-    //     sleep($poll_interval);
-    //     process_speed_test_results($callback);
+    if (empty($token)) {
+        echo json_encode(['status' => false, 'message' => 'Token is required']);
+        return;
+    }
 
-    //     // Check if file has results
-    //     if (file_exists($results_file) && filesize($results_file) > 0) {
-    //         $results = json_decode(file_get_contents($results_file), true);
-    //         if (isset($results['status']) && $results['status'] !== 'pending') {
-    //             break;
-    //         }
-    //     }
-    // }
+    if (verify_token($token)) {
+        file_put_contents('/tmp/speedtest_start.log', "Running speed test command...\n", FILE_APPEND);
+        
+        // Run speedtest-cli and capture output
+        exec("speedtest-cli --json", $output, $return_var);
+        
+        // Log the output and return status
+        file_put_contents('/tmp/speedtest_command_output.log', implode("\n", $output) . "\nReturn Status: $return_var\n", FILE_APPEND);
+        
+        // Write the output to the results file
+        file_put_contents($results_file, implode("\n", $output));
 
-     // Skip the actual speed test command and directly process the dummy results
-     process_speed_test_results($callback);
+        // Check if results were written successfully
+        if (file_exists($results_file) && filesize($results_file) > 0) {
+            process_speed_test_results($callback);
+        } else {
+            call_user_func($callback, [
+                'status' => 'pending', 
+                'message' => 'Speed test results are not ready yet.'
+            ]);
+        }
+    } 
+     else {
+        file_put_contents('/tmp/speedtest_start.log', "Invalid token provided.\n", FILE_APPEND);
+        echo json_encode(['status' => false, 'message' => 'Invalid token']);
+    }
 }
 
-// Function to handle speed test results
+// Function to handle speed test results and output as JSON
 function handle_speed_test_results($data) {
     header('Content-Type: application/json');
+    
+    // Log the data for debugging
+    file_put_contents('/tmp/speedtest_response.log', "Handling results: " . print_r($data, true) . "\n", FILE_APPEND);
+    
+    // Ensure the response is a valid JSON format
     echo json_encode($data);
 }
 

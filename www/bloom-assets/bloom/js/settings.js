@@ -92,30 +92,33 @@ $(document).ready(function() {
     });
     $("#update_lan_settings").click(function(e) {
         e.preventDefault();
+        // Disable the button to prevent multiple clicks
+        $(this).prop('disabled', true);
         
         var lan_ip_address = $("#lan_ip_address").val();
         var lan_ip_netmask = $("#lan_ip_netmask").val();
         var token = localStorage.getItem("token");
     
-        var data = {
+        var landata = {
             "token": token,
             "lan_ip_address": lan_ip_address,
             "lan_ip_netmask": lan_ip_netmask,
         };
     
-        var update_settings = {
-            url: "http://" + server + "/api/?function=/lan/update",
+        var update_lan_settings = {
+            url: "http://"+server+"/api/?function=/lan/update",
             method: "POST",
-            timeout: 0,
+            timeout: 10000,
             headers: {
                 "Content-Type": "application/json"
             },
-            data: JSON.stringify(data),
+            data: JSON.stringify(landata),
         };
     
-        $.ajax(update_settings).done(function(response) {
+        $.ajax(update_lan_settings).done(function(response) {
+            console.log('Full Response:', response);
             if (response.status) {
-                console.log('Success: ', response.message);
+                console.log('Successssss: ', response.message);
                 window.location.href = "/settings.html";
             } else {
                 console.log('Error: ', response.message);
@@ -134,13 +137,18 @@ $(document).ready(function() {
         }).fail(function(jqXHR, textStatus) {
             // Handle request failure
             console.log('Request failed: ', textStatus);
-            $("#error_message").text('An error occurred while updating settings. Please try again.').show();
+            window.location.href = "/analytics.html";
+            //$("#error_message").text('An error occurred while updating settings. Please try again.').show();
     
             // Show the error message for 5 seconds, then hide it
             setTimeout(function() {
                 $("#error_message").fadeOut(); // Hide the error message with fade out
             }, 5000); // 5000 milliseconds = 5 seconds
+        }).always(function() {
+            // Re-enable the button after the request completes
+            $("#update_lan_settings").prop('disabled', false);
         });
+        
     });
     
     // $("#update_lan_settings").click(function (e) {

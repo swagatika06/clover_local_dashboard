@@ -437,159 +437,185 @@ $("#peformance_analysis_list").on('click', '#Show_Connected_Clients', function (
     });
 });
 
-function updateChart(data, div_id) {
+
+
+// function updateRadialChart(downloadData, uploadData, div_id) {
+//   // Create charts for both ports
+//   for (let i = 0; i < 2; i++) {
+//     var options = {
+//       chart: {
+//         height: 350,
+//         type: 'radialBar',
+//       },
+//       plotOptions: {
+//         radialBar: {
+//           dataLabels: {
+//             name: {
+//               fontSize: '22px',
+//             },
+//             value: {
+//               fontSize: '16px',
+//               formatter: function (val) {
+//                 return val + "%";
+//               },
+//             },
+//             total: {
+//               show: false,
+//               label: 'Total',
+//               formatter: function (w) {
+//                 const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+//                 return total.toFixed(2) + "%";
+//               }
+//             }
+//           },
+//         }
+//       },
+//       series: [
+//         downloadData, 
+//         uploadData    
+//       ],
+//       labels: [
+//         `Download - Port ${i}`, 
+//         `Upload - Port ${i}`
+//       ],
+//       colors: ['#1E90FF', '#32CD32'],
+//       title: {
+//         text: `Speedtest Results for Port ${i}`
+//       },
+//     };
+
+//     // Render each chart in a unique div
+//     var chart = new ApexCharts(document.getElementById('chart_' + div_id + '_port_' + i), options);
+//     chart.render();
+//   }
+// }
+
+function updateRadialChart(downloadData, uploadData, div_id) {
+ 
   var options = {
     chart: {
-      type: 'bar',
       height: 350,
+      type: 'radialBar',
     },
     plotOptions: {
-      bar: {
-        horizontal: false,
-      },
-    },
-    dataLabels: {
-      enabled: true,
-      formatter: function (val) {
-        return val + "%";
-      },
-    },
-    title: {
-      text: "Speedtest Results",
-    },
-    yaxis: {
-      labels: {
-        formatter: function (value) {
-          return value + "%";
+      radialBar: {
+        dataLabels: {
+          name: {
+            fontSize: '22px',
+          },
+          value: {
+            fontSize: '16px',
+            formatter: function (val) {
+              return val + "%";
+            },
+          },
+          total: {
+            show: false,
+            label: 'Total',
+            formatter: function (w) {
+              const total = w.globals.seriesTotals.reduce((a, b) => a + b, 0);
+              return total.toFixed(2) + "%";
+            }
+          }
         },
-      },
+      }
     },
     series: [
-      {
-        name: 'Download Data',
-        data: data.map(item => item.downloadData),
-      },
-      {
-        name: 'Upload Data',
-        data: data.map(item => item.uploadData),
-      },
+      downloadData, 
+      uploadData    
     ],
-    xaxis: {
-      categories: data.map(item => item.name),
+    labels: [
+      "Download", 
+      "Upload"
+    ],
+    colors: ['#1E90FF', '#32CD32'],
+    title: {
+      text: "Speedtest Results"
     },
   };
 
-  chart = new ApexCharts(document.getElementById('chart_' + div_id), options);
+  var chart = new ApexCharts(document.getElementById('chart_' + div_id), options);
   chart.render();
 }
 
-  $("#peformance_analysis_list").on('click', '#show_speedtest', function () {
-    var action_div_id = "action_" + action_id;
-    $("#" + action_div_id).remove();
-    action_id++;
-    var loading_div_id = "loading_" + action_id;
-    console.log("Action id is " + action_id);
 
-    var chart_id = "chart_" + action_id;
 
-    clearInterval(loadingspeedTextInterval);
-    loadingspeedTextIndex = 0;
+$("#peformance_analysis_list").on('click', '#show_speedtest', function () {
+  var action_div_id = "action_" + action_id;
+  $("#" + action_div_id).remove();
+  action_id++;
+  var loading_div_id = "loading_" + action_id;
+  var chart_id = "chart_" + action_id;
 
-    showRightMessage("Speedtest Results");
+  clearInterval(loadingspeedTextInterval);
+  loadingspeedTextIndex = 0;
 
-    $("#peformance_analysis_list").append('<li class="clearfix" id="' + loading_div_id + '" ><div class="message other-message pull-right"><img class="float-start chat-user-img img-30" src="assets/images/loading.gif" alt=""><div class="message-data">' + loadingspeedTexts[loadingspeedTextIndex] + '</div></div></li>');
+  showRightMessage("Speedtest Results");
 
-    loadingspeedTextIndex = (loadingspeedTextIndex + 1) % loadingspeedTexts.length;
-    loadingspeedTextInterval = setInterval(function () {
-      $("#" + loading_div_id + " .message-data").text(loadingspeedTexts[loadingspeedTextIndex]);
+  // Append loading message
+  $("#peformance_analysis_list").append('<li class="clearfix" id="' + loading_div_id + '" ><div class="message other-message pull-right"><img class="float-start chat-user-img img-30" src="assets/images/loading.gif" alt=""><div class="message-data">' + loadingspeedTexts[loadingspeedTextIndex] + '</div></div></li>');
 
-      // Check if it's the last text, and stop the interval
-      if (loadingspeedTextIndex === loadingspeedTexts.length - 1) {
-        clearInterval(loadingspeedTextInterval);
-      } else {
-        loadingspeedTextIndex = (loadingspeedTextIndex + 1) % loadingspeedTexts.length;
-      }
-    }, 7500);
+  // Update loading text periodically
+  loadingspeedTextInterval = setInterval(function () {
+    $("#" + loading_div_id + " .message-data").text(loadingspeedTexts[loadingspeedTextIndex]);
+    if (loadingspeedTextIndex === loadingspeedTexts.length - 1) {
+      clearInterval(loadingspeedTextInterval);
+    } else {
+      loadingspeedTextIndex = (loadingspeedTextIndex + 1) % loadingspeedTexts.length;
+    }
+  }, 7500);
 
-    var settings = {
-      url: "http://" + server + "/api/?function=/start_speed_test",
-      method: "POST",
-      timeout: 120000,
-      headers: {
-        "Content-Type": "application/json"
-      },
-      data: JSON.stringify({
-        "token": token
-      })
-    };
-    
-    $.ajax(settings).done(function(response) {
-      console.log("Response speed test: ", response);
-    
-      // Handle response from the server
-      if (response.status === 'pending') {
-        console.log("Speed test results are not ready yet.");
-       
-      } else if (response.status === 'success') {
-        const totalDownloadBandwidth = response.Total_Download_Bandwidth;
-        const totalUploadBandwidth = response.Total_Upload_Bandwidth;
-        const interfaces = response.interfaces;
-    
-        function getInterfaceHTML(data) {
-          if (!data.Download_Bandwidth && !data.Upload_Bandwidth) {
-            return '';
-          }
-          const statusColor = data.status === "Active" ? "green" : "red";
-          return `
-            Port ${data.name.slice(-1)}:
-            <br>&nbsp;&nbsp;&nbsp;Download Data: ${data.percent_dw_part || "0"}%
-            <br>&nbsp;&nbsp;&nbsp;Upload Data: ${data.percent_up_part || "0"}%
-            <br>&nbsp;&nbsp;&nbsp;`.replace(`[${data.status}]`, `[<span style="color:${statusColor}">${data.status}</span>]`);
-        }
-    
-        const interfacesHTML = Object.values(interfaces).map(data => getInterfaceHTML(data)).filter(html => html !== '').join('');
-    
-        $("#peformance_analysis_list").append(`<li style="background-color:#ecf1fb; border: 3px">
-          <div class="message my-message" style="background-color: #fff;">
-            <img class="float-start chat-user-img img-30" src="./assets/images/zifilink-icon.png" alt="">
-            <div class="message-data text-start">
-              <span class="message-data-time">${new Date().toLocaleTimeString()}</span>
-            </div>
-            <p>
-              Total Download: ${totalDownloadBandwidth} Kb/s
-              <br>Total Upload: ${totalUploadBandwidth} Kb/s
-              <br>Interfaces:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;${interfacesHTML}
-            </p>
-            <div id="${chart_id}"></div>
+  var settings = {
+    url: "http://" + server + "/api/?function=/start_speed_test",
+    method: "POST",
+    timeout: 120000,
+    headers: {
+      "Content-Type": "application/json"
+    },
+    data: JSON.stringify({
+      "token": token
+    })
+  };
+
+  $.ajax(settings).done(function (response) {
+    console.log("Response speed test: ", response);
+
+    if (response.status === 'success') {
+      
+      const totalDownloadBandwidth = response.data.Total_Download_Bandwidth || 0;
+      const totalUploadBandwidth = response.data.Total_Upload_Bandwidth || 0;
+
+      // Append results to the list
+      $("#peformance_analysis_list").append(`<li style="background-color:#ecf1fb; border: 3px; width: 100%; box-sizing: border-box;">
+        <div class="message my-message" style="background-color: #fff; width: 100%; box-sizing: border-box;">
+          <div class="message-data text-start">
+            <span class="message-data-time">${new Date().toLocaleTimeString()}</span>
           </div>
-        </li>`);
-    
-        const speedtestData = Object.values(interfaces).map(interface => ({
-          name: `Port ${interface.name.slice(-1)}`,
-          downloadData: parseFloat(interface.percent_dw_part) || 0,
-          uploadData: parseFloat(interface.percent_up_part) || 0,
-        }));
-    
-        updateChart(speedtestData, action_id);
-    
-        $("#" + loading_div_id).remove();
-        showButtons();
-    
-      } else {
-        console.error("Error: " + response.message);
-        alert("Error: " + response.message);
-    
-        // Remove the loading indicator if present
-        $("#" + loading_div_id).remove();
-      }
-    }).fail(function(jqXHR, textStatus, errorThrown) {
-      console.error("Error: " + textStatus, errorThrown);
-      alert("Error: " + errorThrown);
-    
-      // Remove the loading indicator if present
-      $("#" + loading_div_id).remove();
-    });
+          <p style="width: 100%; box-sizing: border-box;">
+            Total Download: ${totalDownloadBandwidth} Mbps
+            <br>Total Upload: ${totalUploadBandwidth} Mbps
+          </p>
+          <div id="${chart_id}" style="width: 100%; height: 300px;"></div>
+        </div>
+      </li>`);
+
+      // Update chart with total download and upload data
+      updateRadialChart(totalDownloadBandwidth, totalUploadBandwidth, action_id);
+
+      $("#" + loading_div_id).remove(); 
+      showButtons();
+
+    } else {
+      console.error("Error: " + response.message);
+      alert("Error: " + response.message);
+      $("#" + loading_div_id).remove(); 
+    }
+  }).fail(function (jqXHR, textStatus, errorThrown) {
+    console.error("Error: " + textStatus, errorThrown);
+    alert("Error: " + errorThrown);
+    $("#" + loading_div_id).remove(); 
   });
+});
 
 
   // code to close the modal
